@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const BlockChain = require('./Blockchain');
+const request = require('request');
 
 const app = express();
 const blockchain = new BlockChain();
@@ -8,11 +9,10 @@ const blockchain = new BlockChain();
 app.use(bodyParser.json());
 
 app.get("/mine", (request, response) => {
-    //Mine the last block by performing proof of work algorithm
+
     const lastHash = blockchain.lastBlock.proof;
     const proof = blockchain.mineBlock(lastHash);
 
-    //Recieve my reward for mining
     blockchain.createTransaction("0", "jhamet93", 1);
     blockchain.createBlock(proof);
 
@@ -29,7 +29,20 @@ app.post("/transaction", (request, response) => {
         recipient,
         amount
     } = request.body;
-    blockchain.createTransaction(sender, recipient, amount)
+
+    const transaction = blockchain.createTransaction(sender, recipient, amount);
+    blockchain.nodes.forEach(node => request.post(`node/transaction`, { body: JSON.stringify(request.body) }));
+
+    response.sendStatus(200);
+});
+
+app.post("/register", (request, response) => {
+    blockchain.registerNode(request.ip);
+    response.sendStatus(200);
+});
+
+app.post("/resolve", (request, response) => {
+    blockchain.resolveChain();
     response.sendStatus(200);
 });
 
