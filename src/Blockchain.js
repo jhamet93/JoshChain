@@ -27,35 +27,43 @@ class BlockChain{
         let maxLength = this.chain.length;
         let maxChain = null;
 
-        //TODO: Handle timing of multiple nodes
-        for (const node of this.nodes){
-            const chain = request.get(`${node}/chain`)
-                            .on('response', response => {
-                                const chain = JSON.parse(response);
+        const chains = Promise.all([...this.nodes].map(node => {
+            return new Promise((resolve, reject) => {
+                request.get(`${node}/chain`)
+                    .on('response', response => {
+                        const chain = JSON.parse(response);
+                        resolve(chain);
+                }); 
+            });
+        })).then(chains => {
+            for (const chain in chains){
+                let validChain = true;
+                for (let i = 1; i < chain.length; i++){
+                    const previousBlock = chain[i - 1]
+                    const currentBlock = chain[i];
+    
+                    if (sha256(JSON.stringify(previousBlock)) !== currentBlock.previousBlock){
+                        validChain = false;
+                        break;
+                    }
 
-                                let validChain = true;
-                                for (let i = 1; i < chain.length; i++){
-                                    const previousBlock = chain[i - 1]
-                                    const currentBlock = chain[i];
-
-                                    if (sha256(JSON.stringify(previousBlock)) !== currentBlock.previousBlock){
-                                        validChain = false;
-                                        break;
-                                    }
-
-                                    if (sha256(`${previousBlock.proof}${currentBlock.proof}`).slice(0,4) !== "0000"){
-                                        validChain = false;
-                                        break;
-                                    }
-                                }
-
-                                if (validChain && chain.length > myChainLength){
-                                    maxLength = chain.length;
-                                    maxChain = chain;
-                                }
-                            });
-
-        }
+                    if (sha256(JSON.stringify(previousBlock.transactions)) !== currentBlock.transactionHash){
+                        validChain = false;
+                        break;
+                    }
+    
+                    if (sha256(`${previousBlock.proof}${currentBlock.proof}`).slice(0,4) !== "0000"){
+                        validChain = false;
+                        break;
+                    }
+                }
+    
+                if (validChain && chain.length > myChainLength){
+                    maxLength = chain.length;
+                    maxChain = chain;
+                }
+            }
+        });
 
         if (maxChain)
             this.chain = maxChain;
@@ -81,6 +89,7 @@ class BlockChain{
             index: lastBlock.index + 1,
             timestamp: Date.now(),
             transactions: this.currentTransactions,
+            transactionHash: sha256(JSON.stringify(this.currentTransactions)),
             proof: proofOfWork,
             previousHash: sha256(blockString)
         }
@@ -110,7 +119,6 @@ class BlockChain{
     createTransaction(sender, recipient, amount){
         const transaction = { sender, recipient, amount }
         this.currentTransactions.push({
-            hash: JSON.stringify(transaction),
             sender,
             recipient,
             amount

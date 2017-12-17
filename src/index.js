@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const BlockChain = require('./Blockchain');
 const request = require('request');
 const uuid = require('uuid/v1');
+const sha256 = require('sha256')
 
 const app = express();
 const blockchain = new BlockChain();
@@ -13,14 +14,11 @@ app.use(bodyParser.json());
 
 app.get("/mine", (request, response) => {
 
-    const lastHash = blockchain.lastBlock.proof;
+    const lastHash = sha256(JSON.stringify(blockchain.lastBlock));
     const proof = blockchain.mineBlock(lastHash);
 
     blockchain.createTransaction("0", userId, 1);
     blockchain.createBlock(proof);
-
-    //TODO: Tell neighboring nodes you mined a block. Change implementation of this endpoint. Calling this should inform others of a new mined block NOT trigger a mining. Blockchain
-    //should implement its own mining algorithm locally
 
     response.sendStatus(200);
 });
