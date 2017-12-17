@@ -105,9 +105,12 @@ class BlockChain{
      * @param {string} sender
      * @param {string} recipient 
      * @param {string} amount 
+     * @returns {object}
      */
     createTransaction(sender, recipient, amount){
+        const transaction = { sender, recipient, amount }
         this.currentTransactions.push({
+            hash: JSON.stringify(transaction),
             sender,
             recipient,
             amount
